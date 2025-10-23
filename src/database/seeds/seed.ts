@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import 'reflect-metadata';
 import { AppDataSource } from '../data-source';
 import { Usuario, RolUsuario } from '../../usuarios/usuario.entidad';
