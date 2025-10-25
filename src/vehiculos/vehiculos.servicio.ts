@@ -28,21 +28,26 @@ export class VehiculosServicio {
     }
 
     const placaExistente = await this.vehiculosRepo.findOne({
-      where: { placa: dto.placa },
+      where: { placa: dto.placa.trim().toUpperCase() },
     });
     if (placaExistente) {
       throw new BadRequestException('La placa ya esta registrada');
     }
 
     const vehiculo = this.vehiculosRepo.create({
-      cliente,
+      cliente: { id: cliente.id },
       placa: dto.placa.trim().toUpperCase(),
       marca: dto.marca,
       linea: dto.linea,
       modelo: dto.modelo,
       color: dto.color,
     });
-    return this.vehiculosRepo.save(vehiculo);
+    try {
+      return await this.vehiculosRepo.save(vehiculo);
+    } catch (error) {
+      console.error('Error al guardar vehículo:', error);
+      throw new BadRequestException('Error al guardar vehículo. Verifique los datos e intente de nuevo.');
+    }
   }
 
   listar(clienteId?: string) {

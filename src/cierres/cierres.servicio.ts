@@ -17,8 +17,61 @@ export class CierresServicio {
     private readonly dataSource: DataSource,
   ) {}
 
-  listar() {
-    return this.cierresRepo.find({ order: { fechaInicio: 'DESC' } });
+  listar(filtros?: {
+    fechaInicio?: string;
+    fechaFin?: string;
+    search?: string;
+  }) {
+    const qb = this.cierresRepo.createQueryBuilder('cierre');
+
+    if (filtros?.fechaInicio) {
+      const inicio = this.parsearFecha(filtros.fechaInicio);
+      if (inicio) {
+        qb.andWhere('cierre.fechaInicio >= :inicio', { inicio });
+      }
+    }
+
+    if (filtros?.fechaFin) {
+      const fin = this.parsearFecha(filtros.fechaFin);
+      if (fin) {
+        qb.andWhere('cierre.fechaFin <= :fin', { fin });
+      }
+    }
+
+    if (filtros?.search) {
+      const search = `%${filtros.search.toLowerCase()}%`;
+      qb.andWhere('LOWER(cierre.periodo) LIKE :search', { search });
+    }
+
+    qb.orderBy('cierre.fechaInicio', 'DESC');
+
+    return qb.getMany();
+  }
+
+  private parsearFecha(fecha: string): Date | null {
+    if (!fecha) return null;
+
+    // Formato DD/MM/YYYY
+    const partesDMY = fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (partesDMY) {
+      const [, dia, mes, anio] = partesDMY.map(Number);
+      return new Date(Date.UTC(anio, mes - 1, dia));
+    }
+
+    // Formato YYYY-MM-DD
+    const partesYMD = fecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (partesYMD) {
+      const [, anio, mes, dia] = partesYMD.map(Number);
+      return new Date(Date.UTC(anio, mes - 1, dia));
+    }
+
+    // Fallback para otros formatos que new Date() pueda entender
+    const d = new Date(fecha);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 1000) {
+      return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+
+    return null;
   }
 
   async generar(dto: GenerarCierreDto) {

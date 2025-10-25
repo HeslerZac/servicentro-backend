@@ -17,6 +17,7 @@ export class VentasServicio {
     fechaInicio?: string;
     fechaFin?: string;
     estado?: EstadoVenta;
+    search?: string;
   }) {
     const qb = this.ventasRepo.createQueryBuilder('venta');
 
@@ -40,9 +41,59 @@ export class VentasServicio {
       qb.andWhere('venta.creadaEn <= :fin', { fin });
     }
 
+    if (filtros.search) {
+      const searchDate = this.parsearFecha(filtros.search);
+      if (searchDate) {
+        // If search term is a date, search within that day
+        const inicioDia = new Date(searchDate);
+        inicioDia.setHours(0, 0, 0, 0);
+        const finDia = new Date(searchDate);
+        finDia.setHours(23, 59, 59, 999);
+        qb.andWhere('venta.creadaEn BETWEEN :inicioDia AND :finDia', {
+          inicioDia,
+          finDia,
+        });
+      } else {
+        // If not a date, search in other fields
+        const search = `%${filtros.search.toLowerCase()}%`;
+        qb.andWhere(
+          '(LOWER(venta.numero) LIKE :search OR ' +
+            'LOWER(cliente.nombre) LIKE :search OR ' +
+            'LOWER(usuario.nombre) LIKE :search)',
+          { search },
+        );
+      }
+    }
+
     qb.orderBy('venta.creadaEn', 'DESC');
 
     return qb.getMany();
+  }
+
+  private parsearFecha(fecha: string): Date | null {
+    if (!fecha) return null;
+
+    // Formato DD/MM/YYYY
+    const partesDMY = fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (partesDMY) {
+      const [, dia, mes, anio] = partesDMY.map(Number);
+      return new Date(Date.UTC(anio, mes - 1, dia));
+    }
+
+    // Formato YYYY-MM-DD
+    const partesYMD = fecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (partesYMD) {
+      const [, anio, mes, dia] = partesYMD.map(Number);
+      return new Date(Date.UTC(anio, mes - 1, dia));
+    }
+
+    // Fallback para otros formatos que new Date() pueda entender
+    const d = new Date(fecha);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 1000) {
+      return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+
+    return null;
   }
 
   async buscarPorId(id: string) {

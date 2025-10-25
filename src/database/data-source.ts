@@ -19,4 +19,9 @@ export const AppDataSource = new DataSource({
   logging:
     process.env.TYPEORM_LOGGING === 'true' ||
     process.env.NODE_ENV !== 'production',
+  extra: {
+    // Configura TypeORM para usar UTC para todas las operaciones de fecha
+    // Esto asegura que las fechas se guarden y se lean en UTC, evitando problemas de zona horaria.
+    useUTC: true,
+  },
 });

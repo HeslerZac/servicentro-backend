@@ -54,10 +54,10 @@ export class OrdenServicio {
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
   total: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp with time zone' })
   creadaEn: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamp with time zone' })
   actualizadaEn: Date;
 
   @OneToMany(() => OrdenDetalleProducto, (detalle) => detalle.orden, {

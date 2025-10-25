@@ -19,12 +19,14 @@ export class VentasControlador {
   @ApiQuery({ name: 'fechaInicio', required: false, type: Date })
   @ApiQuery({ name: 'fechaFin', required: false, type: Date })
   @ApiQuery({ name: 'estado', required: false, enum: EstadoVenta })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Busqueda general por numero, cliente, usuario, etc.' })
   listar(
     @Query('fechaInicio') fechaInicio?: string,
     @Query('fechaFin') fechaFin?: string,
     @Query('estado') estado?: EstadoVenta,
+    @Query('search') search?: string,
   ) {
-    return this.servicio.listar({ fechaInicio, fechaFin, estado });
+    return this.servicio.listar({ fechaInicio, fechaFin, estado, search });
   }
 
   @Get(':id')
