@@ -13,11 +13,36 @@ export class VentasServicio {
     private readonly dataSource: DataSource,
   ) {}
 
-  listar() {
-    return this.ventasRepo.find({
-      order: { creadaEn: 'DESC' },
-      relations: ['cliente', 'usuario', 'orden'],
-    });
+  listar(filtros: {
+    fechaInicio?: string;
+    fechaFin?: string;
+    estado?: EstadoVenta;
+  }) {
+    const qb = this.ventasRepo.createQueryBuilder('venta');
+
+    qb.leftJoinAndSelect('venta.cliente', 'cliente');
+    qb.leftJoinAndSelect('venta.usuario', 'usuario');
+    qb.leftJoinAndSelect('venta.orden', 'orden');
+
+    if (filtros.estado) {
+      qb.andWhere('venta.estado = :estado', { estado: filtros.estado });
+    }
+
+    if (filtros.fechaInicio) {
+      const inicio = new Date(filtros.fechaInicio);
+      inicio.setHours(0, 0, 0, 0);
+      qb.andWhere('venta.creadaEn >= :inicio', { inicio });
+    }
+
+    if (filtros.fechaFin) {
+      const fin = new Date(filtros.fechaFin);
+      fin.setHours(23, 59, 59, 999);
+      qb.andWhere('venta.creadaEn <= :fin', { fin });
+    }
+
+    qb.orderBy('venta.creadaEn', 'DESC');
+
+    return qb.getMany();
   }
 
   async buscarPorId(id: string) {

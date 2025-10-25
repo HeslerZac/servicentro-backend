@@ -40,12 +40,91 @@ export class OrdenesServicio {
     private readonly ventasServicio: VentasServicio,
     private readonly cajaServicio: CajaServicio,
   ) {}
-  listar() {
-    // Evitar fallo por columnas faltantes en ventas durante listado
-    return this.ordenesRepo.find({
-      order: { creadaEn: 'DESC' },
-      relations: ['cliente', 'vehiculo'],
-    });
+  listar(filtros?: {
+    estado?: EstadoOrden;
+    fechaInicio?: string;
+    fechaFin?: string;
+    search?: string;
+  }) {
+    const qb = this.ordenesRepo.createQueryBuilder('orden');
+
+    qb.leftJoinAndSelect('orden.cliente', 'cliente');
+    qb.leftJoinAndSelect('orden.vehiculo', 'vehiculo');
+    qb.leftJoinAndSelect('orden.usuarioResponsable', 'usuario');
+
+    if (filtros?.estado) {
+      qb.andWhere('orden.estado = :estado', { estado: filtros.estado });
+    }
+
+    if (filtros?.fechaInicio) {
+      const inicio = this.parsearFecha(filtros.fechaInicio);
+      if (inicio) {
+        qb.andWhere('orden.creadaEn >= :inicio', { inicio });
+      }
+    }
+
+    if (filtros?.fechaFin) {
+      const fin = this.parsearFecha(filtros.fechaFin);
+      if (fin) {
+        fin.setUTCHours(23, 59, 59, 999);
+        qb.andWhere('orden.creadaEn <= :fin', { fin });
+      }
+    }
+
+    if (filtros?.search) {
+      const searchDate = this.parsearFecha(filtros.search);
+      if (searchDate) {
+        // Si el texto de búsqueda es una fecha, buscar en el rango de ese día
+        const finDia = new Date(searchDate);
+        finDia.setUTCHours(23, 59, 59, 999);
+        qb.andWhere('orden.creadaEn BETWEEN :inicioDia AND :finDia', {
+          inicioDia: searchDate, // searchDate is already at the beginning of the day in UTC
+          finDia,
+        });
+      } else {
+        // Si no es una fecha, buscar en los otros campos
+        const search = `%${filtros.search.toLowerCase()}%`;
+        qb.andWhere(
+          '(LOWER(orden.numero) LIKE :search OR ' +
+            'LOWER(cliente.nombre) LIKE :search OR ' +
+            'LOWER(vehiculo.placa) LIKE :search OR ' +
+            'LOWER(usuario.nombre) LIKE :search)',
+          { search },
+        );
+      }
+    }
+
+    qb.orderBy('orden.creadaEn', 'DESC');
+
+    return qb.getMany();
+  }
+
+  private parsearFecha(fecha: string): Date | null {
+    if (!fecha) return null;
+
+    // Formato DD/MM/YYYY
+    const partesDMY = fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (partesDMY) {
+      const [, dia, mes, anio] = partesDMY.map(Number);
+      return new Date(Date.UTC(anio, mes - 1, dia));
+    }
+
+    // Formato YYYY-MM-DD
+    const partesYMD = fecha.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (partesYMD) {
+      const [, anio, mes, dia] = partesYMD.map(Number);
+      return new Date(Date.UTC(anio, mes - 1, dia));
+    }
+
+    // Fallback para otros formatos que new Date() pueda entender
+    const d = new Date(fecha);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 1000) {
+      // Asumimos que si no es uno de los formatos de arriba, es una fecha ISO
+      // y la convertimos a UTC para ser consistentes.
+      return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+
+    return null;
   }
 
   async buscarPorId(id: string) {
